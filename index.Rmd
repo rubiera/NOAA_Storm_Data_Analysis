@@ -1,10 +1,10 @@
 ---
-title: "Index"
+title: "NOAA Storm Data Analysis"
 author: "Antonio Rubiera"
 date: "9/24/2019"
 output:
-  pdf_document: default
   html_document: default
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -28,5 +28,7 @@ You can also embed plots, for example:
 ```{r pressure, echo=FALSE}
 plot(pressure)
 ```
+
+![](https://photos.google.com/album/AF1QipPKvMxiEko8m1VsJW7Q5aYLVK4ouqPXcElwnJ0b/photo/AF1QipMinfhAX-Rxh8We3EUh0P96G1usYfwQpAeU5ZbH)
 
 Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
