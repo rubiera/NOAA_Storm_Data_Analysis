@@ -16,7 +16,6 @@ Your data analysis must address the following questions:
 Consider writing your report as if it were to be read by a government or municipal manager who might be responsible for preparing for severe weather events and will need to prioritize resources for different types of events. However, there is no need to make any specific recommendations in your report.
 
 Review criteria
-
 1.	Has either a (1) valid RPubs URL pointing to a data analysis document for this assignment been submitted; or (2) a complete PDF file presenting the data analysis been uploaded?
 2.	Is the document written in English?
 3.	Does the analysis include description and justification for any data transformations?
