@@ -1,0 +1,8 @@
+name: "NOAA Storm Data Analysis"
+navbar:
+  title: "NOAA Storm Data Analysis"
+  type: inverse
+  left:
+    - text: "Home"
+      icon: fa-home
+      href: index.html
