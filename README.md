@@ -1,5 +1,11 @@
 # NOAA Storm Data Analysis
 
+## Note for grader
+
+The complete submission is in index.PDF.
+
+-----
+
 This analysis is in fulfillment of the Course 5, Week 4 assignment for the John Hopkins Data Science in R series of Coursera courses. 
 
 Assignment
