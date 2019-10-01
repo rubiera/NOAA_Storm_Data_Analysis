@@ -1,62 +1,26 @@
----
-title: "NOAA Storm Data Analysis"
-author: "Antonio Rubiera"
-date: "9/30/2019"
-output:
-  pdf_document: default
-  html_document: default
----
-
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
-
-## Sypnosis
-
-We analyze the storm data available from NOAA for the years 1950-2011. The data as loaded requires filtering for columns we will not use and several transformations. In our first transformation, we select the year for each observation out of a string, and later perform an inflation adjustment for the financial costs by year using the website [https://www.usinflationcalculator.com/]. We perform transformations into new columns that capture the sum of fatalities and injuries, and the sum of financial damage to property and crops. To get to the sum of financial damage to property and crops, we fist change the exponent for property (PROPDMGEXP) and crop (CROPDMGEXP) damage from a letter, any other character, or blank to a number. We use this number as the product to multiply the respective base (PROPDMG, CROPDMG) costs by. . We perform an outlier analysis of the fatalities and the sum of financial damage to property and crops, and make corrections to the data for the latter. We recode the event type (EVTYPE) to eight categories from hundreds of descriptions found in the data. Finally, we sum the data for each year and each category and plot the result for fatalities and injuries, and the sum of financial damage to property and crops. 
-
-## Data Processing
-
-We use the following R libraries.
-
-```{r libraries, warning = FALSE, message=FALSE}
 library(data.table)
 library(R.utils)
 library(tidyverse)
 library(ggplot2)
-library(knitr)
-```
 
-### Data load.
-
-We use data.table's fread to load the data. This dataset has 902,247 observations in 37 columns. 
-
-```{r data load, cache = TRUE}
 StormDataDT <- fread("./data/repdata_data_StormData.csv.bz2")
 head(StormDataDT)
-```
 
-### Filtering data into a working dataset.
-
-We filter columns we need for our analysis.
-
-```{r filter, cache = TRUE}
+#########recode begins here
+#need columns for outlier analysis
 StormDataDT_recode <- StormDataDT[,
     c("REFNUM","BGN_DATE","EVTYPE","FATALITIES","INJURIES", 
       "PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP")]
 head(StormDataDT_recode)
 tail(StormDataDT_recode)
 str(StormDataDT_recode)
-```
 
-### Year recode
-
-We recode the year out of the BGN_DATE field. We select that column out to strip out the year. 
-
-```{r BGN_DATE_year, cache = TRUE}
+#whole list
 BGN_DATE_year <- as.character(StormDataDT_recode$BGN_DATE)
 
 for (i in 1:length(BGN_DATE_year)){
+  print(i)
+  print(unlist(substring(strsplit(BGN_DATE_year[[i]], "/")[[1]][[3]],1,4)))
   BGN_DATE_year[i] <- 
     unlist(substring(strsplit(BGN_DATE_year[[i]], "/")[[1]][[3]],1,4))
 }
@@ -64,30 +28,35 @@ for (i in 1:length(BGN_DATE_year)){
 head(BGN_DATE_year)
 tail(BGN_DATE_year)
 length(BGN_DATE_year)
-```
 
-We bind the stripped year back into the dataset, and check that we still have a data.table data frame.
-
-```{r BGN_DATE in, cache = TRUE}
 StormDataDT_recode <- cbind(StormDataDT_recode,BGN_DATE_year)
 head(StormDataDT_recode)
+
+###year recode complete
 class(StormDataDT_recode)
-```
+#make sure we get back to data.table after cbind
+StormDataDT_recode <- setDT(StormDataDT_recode)
 
-### PROPDMGEXP recode.
+################PROPDMGEXP recode
 
-We take a look at the characters found in the property damage exponent (PROPDMGEXP) column.
+table(StormDataDT_recode[,PROPDMGEXP])
+#     -      ?      +      0      1      2      3      4       
+#465934      1      8      5    216     25     13      4      
+#5      6      7      8      B      h      H      K
+#4     28      4      5      1     40      1      6 424665 
+#m      M 
+#7  11330
 
-```{r PROPDMGEXP recode step 1, cache = TRUE}
 recode_PROPDMGEXP <- StormDataDT_recode[,PROPDMGEXP]
 class(recode_PROPDMGEXP)
 table(recode_PROPDMGEXP)
-```
 
-We recode these values and check the result.
-
-```{r PROPDMGEXP recode step 2, cache = TRUE}
 for (i in seq_along(recode_PROPDMGEXP)){
+
+  print(i)
+  #before
+  print("before")
+  print(recode_PROPDMGEXP[[i]])
 
   if(recode_PROPDMGEXP[[i]] == "1"){
     recode_PROPDMGEXP[[i]] <- 10
@@ -132,26 +101,34 @@ for (i in seq_along(recode_PROPDMGEXP)){
     recode_PROPDMGEXP[[i]] <- 1000000000
   }
   
+  #after
+  print("after")
+  print(recode_PROPDMGEXP[[i]])
+  
 }
 
 table(recode_PROPDMGEXP)
+#1     10    100   1000  10000  1e+05  1e+06  1e+07  1e+08  1e+09 
+#466171     25     13 424669      4     28  11341      5      1     40  
 
-```
 
-### CROPDMGEXP recode.
+################CROPDMGEXP recode
 
-We take a look at the characters found in the crop damage exponent (CROPDMGEXP) column.
+table(StormDataDT_recode[,CROPDMGEXP])
+#            ?      0      2      B      k      K      m      M 
+#618413      7     19      1      9     21 281832      1   1994 
 
-```{r CROPDMGEXP recode step 1, cache = TRUE}
 recode_CROPDMGEXP <- StormDataDT_recode[,CROPDMGEXP]
 class(recode_CROPDMGEXP)
 table(recode_CROPDMGEXP)
-```
 
-We recode these values and check the result.
-
-```{r CROPDMGEXP recode step 2, cache = TRUE}
 for (i in seq_along(recode_CROPDMGEXP)){
+  
+  print(i)
+  #before
+  print("before")
+  print(recode_CROPDMGEXP[[i]])
+  
   
   if(recode_CROPDMGEXP[[i]] == "" | 
      recode_CROPDMGEXP[[i]] == "0" |
@@ -176,26 +153,31 @@ for (i in seq_along(recode_CROPDMGEXP)){
     recode_CROPDMGEXP[[i]] <- 1000000000
   }
   
+  #after
+  print("after")
+  print(recode_CROPDMGEXP[[i]])
+  
 }
 
 table(recode_CROPDMGEXP)
-```
+#1    100   1000  1e+06  1e+09 
+#618439      1 281853   1995      9  
 
-### PROPDMGEXP and CROPDMGEXP recodes incorporated into our dataset.
-
-We bind the recoded columns into our working dataset (StormDataDT_recode). We test that we still have a data.table data frame and that our sums for numerical columns are indeed numerical.
-
-```{r PROPDMGEXP CROPDMGEXP recode, cache = TRUE}
+###PROPDMGEXP and CROPDMGEXP recode complete
 StormDataDT_recode <- cbind(StormDataDT_recode,recode_PROPDMGEXP,recode_CROPDMGEXP)
+
+#before big column trim
+#need columns for outlier analysis here
 head(StormDataDT_recode)
+
 class(StormDataDT_recode)
+#make sure we get back to data.table after cbind
+#not needed this time since we do have a data.table
+
+
 sum(StormDataDT_recode$PROPDMG)
 sum(StormDataDT_recode$CROPDMG)
-```
 
-We take the products from our records and come up with a sum of the total property and crop damage by individual event (REFNUM), and sum fatalities and injuries into an additional column.
-
-```{r sums main step, cache = TRUE}
 StormDataDT_recode_totals <- StormDataDT_recode[,
                              PROPDMG.Total := PROPDMG*as.numeric(recode_PROPDMGEXP)]
 head(StormDataDT_recode_totals)
@@ -208,165 +190,451 @@ head(StormDataDT_recode_totals)
 StormDataDT_recode_totals <- StormDataDT_recode[,
                              Property.and.Crop.Damage := PROPDMG.Total + CROPDMG.Total]
 head(StormDataDT_recode_totals)
-```
 
-### Outlier Analysis for property and crop damage.
+##############################################
+#perform outlier analysis here
 
-We add up totals for the analysis before we perform the outlier analysis and recodes from it.
-
-```{r totals early check, cache = TRUE}
 sum(StormDataDT_recode_totals$FATALITIES)
 sum(StormDataDT_recode_totals$INJURIES)
 sum(StormDataDT_recode_totals$Fatalities.and.Injuries)
 sum(StormDataDT_recode_totals$PROPDMG.Total)
 sum(StormDataDT_recode_totals$CROPDMG.Total)
 sum(StormDataDT_recode_totals$Property.and.Crop.Damage)
-```
 
-We select the top financial cost events to make sure the values make sense. 
-
-```{r outlier money REFNUM load, cache = TRUE}
 StormDataDT_recode_large <- StormDataDT_recode_totals[Property.and.Crop.Damage >= 1000000000]
 StormDataDT_recode_large$REFNUM
-```
+#[1] 187564 194932 194933 194939 198375 207124 211887 243394 298057 347811 366653 398999 444407 485535
+#[15] 488004 525145 529299 529307 529311 529384 529446 564962 569065 569288 577615 577616 577623 581533
+#[29] 581535 581537 598472 605943 639314 739514 739515 808257 834634 859151 860355 862563 867679 867996
 
-We check each one and come up with a disposition for accepting all of the values, or which values I need to change. We only show here the ones for which we made changes to the data. We also show the narrative for Katrina because these are some of the largest costs in this analysis.
-
-Disposition: needs changes.
-
---75 million and not $5 billion
---Property.and.Crop.Damage 50000000
---PROPDMG 75 PROPDMGEXP M recode_PROPDMGEXP 1000000 PROPDMG.Total 75000000
-Most of the damage estimates were at least $50 million.  
-Some estimates ranged between $80 and $100 million
-
-```{r outlier money REFNUM 1, cache = TRUE}
 StormDataDT[REFNUM == 187564,REMARKS]
 StormDataDT_recode_large[REFNUM == 187564,
                       c("PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP",
                         "recode_PROPDMGEXP", "recode_CROPDMGEXP", 
                         "PROPDMG.Total","CROPDMG.Total","Property.and.Crop.Damage")]
-```
 
-Disposition: needs changes.
-"Twenty five percent of the states pecan crop will be lost for the next five to ten years at an estimated cost of $5.5 million per year"
+Disposition:
+  --75 million and not $5 billion
+--Property.and.Crop.Damage 50000000
+--PROPDMG 75 PROPDMGEXP M recode_PROPDMGEXP 1000000 PROPDMG.Total 75000000
+Most of the damage estimates were at least $50 million.  
+Some estimates ranged between $80 and $100 million
 
---CROPDMG 55 CROPDMGEXP M recode_CROPDMGEXP 1000000 CROPDMG.Total 55000000
---Property.and.Crop.Damage 55500000
+StormDataDT[REFNUM == 194932,REMARKS]
+StormDataDT_recode_large[REFNUM == 194932,
+                       c("PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP",
+                         "recode_PROPDMGEXP", "recode_CROPDMGEXP", 
+                         "PROPDMG.Total","CROPDMG.Total","Property.and.Crop.Damage")]
 
+#"Preliminary  damage estimates were $2.1 billion dollars."
 
-```{r outlier money REFNUM 7, cache = TRUE}
+#ACCURATE
+
+StormDataDT[REFNUM == 194933,REMARKS]
+StormDataDT_recode_large[REFNUM == 194933,
+                         c("PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP",
+                           "recode_PROPDMGEXP", "recode_CROPDMGEXP", 
+                           "PROPDMG.Total","CROPDMG.Total","Property.and.Crop.Damage")]
+
+#ACCURATE
+
+StormDataDT[REFNUM == 194939,REMARKS]
+StormDataDT_recode_large[REFNUM == 194939,
+                         c("PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP",
+                           "recode_PROPDMGEXP", "recode_CROPDMGEXP", 
+                           "PROPDMG.Total","CROPDMG.Total","Property.and.Crop.Damage")]
+
+#Seems reasonable
+
+StormDataDT[REFNUM == 198375,REMARKS]
+StormDataDT_recode_large[REFNUM == 198375,
+                         c("PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP",
+                           "recode_PROPDMGEXP", "recode_CROPDMGEXP", 
+                           "PROPDMG.Total","CROPDMG.Total","Property.and.Crop.Damage")]
+
+#[1]   207124 211887 243394 298057 347811 366653 398999 444407 485535
+#[15] 488004 525145 529299 529307 529311 529384 529446 564962 569065 569288 577615 577616 577623 581533
+#[29] 581535 581537 598472 605943 639314 739514 739515 808257 834634 859151 860355 862563 867679 867996
+
+#Prop damage at $5 billion and crop damage at $5 billion
+#Seems resonable
+
+StormDataDT[REFNUM == 207124,REMARKS]
+StormDataDT_recode_large[REFNUM == 207124,
+                         c("PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP",
+                           "recode_PROPDMGEXP", "recode_CROPDMGEXP", 
+                           "PROPDMG.Total","CROPDMG.Total","Property.and.Crop.Damage")]
+
+# ACCURATE
+
 StormDataDT[REFNUM == 211887,REMARKS]
 StormDataDT_recode_large[REFNUM == 211887,
                          c("PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP",
                            "recode_PROPDMGEXP", "recode_CROPDMGEXP", 
                            "PROPDMG.Total","CROPDMG.Total","Property.and.Crop.Damage")]
-```
 
-Disposition: seems an over-estimate.
+"Twenty five percent of the states pecan crop will be lost for the next five to ten 
+years at an estimated cost of $5.5 million per year"
 
-PROPDMG 100 PROPDMGEXP M recode_PROPDMGEXP 100000000 Property.and.Crop.Damage 100000000
+#disposition
+#CROPDMG 55 CROPDMGEXP M recode_CROPDMGEXP 1000000 CROPDMG.Total 55000000
+#Property.and.Crop.Damage 55500000
 
-```{r outlier money REFNUM 14, cache = TRUE}
+StormDataDT[REFNUM == 243394,REMARKS]
+StormDataDT_recode_large[REFNUM == 243394,
+                         c("PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP",
+                           "recode_PROPDMGEXP", "recode_CROPDMGEXP", 
+                           "PROPDMG.Total","CROPDMG.Total","Property.and.Crop.Damage")]
+
+# ACCURATE
+
+StormDataDT[REFNUM == 298057,REMARKS]
+StormDataDT_recode_large[REFNUM == 298057,
+                         c("PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP",
+                           "recode_PROPDMGEXP", "recode_CROPDMGEXP", 
+                           "PROPDMG.Total","CROPDMG.Total","Property.and.Crop.Damage")]
+
+#seems reasonable
+
+StormDataDT[REFNUM == 347811,REMARKS]
+StormDataDT_recode_large[REFNUM == 347811,
+                         c("PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP",
+                           "recode_PROPDMGEXP", "recode_CROPDMGEXP", 
+                           "PROPDMG.Total","CROPDMG.Total","Property.and.Crop.Damage")]
+
+
+#seems reasonable
+
+StormDataDT[REFNUM == 366653,REMARKS]
+StormDataDT_recode_large[REFNUM == 366653,
+                         c("PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP",
+                           "recode_PROPDMGEXP", "recode_CROPDMGEXP", 
+                           "PROPDMG.Total","CROPDMG.Total","Property.and.Crop.Damage")]
+
+# ACCURATE
+
+StormDataDT[REFNUM == 398999,REMARKS]
+StormDataDT_recode_large[REFNUM == 398999,
+                         c("PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP",
+                           "recode_PROPDMGEXP", "recode_CROPDMGEXP", 
+                           "PROPDMG.Total","CROPDMG.Total","Property.and.Crop.Damage")]
+
+#seems reasonable
+
+StormDataDT[REFNUM == 444407,REMARKS]
+StormDataDT_recode_large[REFNUM == 444407,
+                         c("PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP",
+                           "recode_PROPDMGEXP", "recode_CROPDMGEXP", 
+                           "PROPDMG.Total","CROPDMG.Total","Property.and.Crop.Damage")]
+
+#seems reasonable
+
 StormDataDT[REFNUM == 485535,REMARKS]
 StormDataDT_recode_large[REFNUM == 485535,
                          c("PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP",
                            "recode_PROPDMGEXP", "recode_CROPDMGEXP", 
                            "PROPDMG.Total","CROPDMG.Total","Property.and.Crop.Damage")]
-```
 
-Big outlier mistake: "The City of Napa had 600 homes with moderate damage, 150 damaged businesses with costs of at least $70 million."
+#seems an over-estimate
+#PROPDMG 100 PROPDMGEXP M recode_PROPDMGEXP 100000000 Property.and.Crop.Damage 100000000
 
---PROPDMG OK PROPDMGEXP M and not B (BIG DIFFERENCE)
---recode_PROPDMGEXP 1000000
---PROPDMG.Total 115000000
---Property.and.Crop.Damage (115+32.5)= 147500000 
+StormDataDT[REFNUM == 488004,REMARKS]
+StormDataDT_recode_large[REFNUM == 488004,
+                         c("PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP",
+                           "recode_PROPDMGEXP", "recode_CROPDMGEXP", 
+                           "PROPDMG.Total","CROPDMG.Total","Property.and.Crop.Damage")]
 
-```{r outlier money REFNUM 32, cache = TRUE}
+#seems reasonable
+
+StormDataDT[REFNUM == 525145,REMARKS]
+StormDataDT_recode_large[REFNUM == 525145,
+                         c("PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP",
+                           "recode_PROPDMGEXP", "recode_CROPDMGEXP", 
+                           "PROPDMG.Total","CROPDMG.Total","Property.and.Crop.Damage")]
+
+#seems reasonable
+
+StormDataDT[REFNUM == 529299,REMARKS]
+StormDataDT_recode_large[REFNUM == 529299,
+                         c("PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP",
+                           "recode_PROPDMGEXP", "recode_CROPDMGEXP", 
+                           "PROPDMG.Total","CROPDMG.Total","Property.and.Crop.Damage")]
+
+#" $11.2 billion in property damage (estimated to be about twice that of the insured damage), 
+#and $460 million in crop damage
+
+#carries over multiple entries
+#seems accurate when combined with other entries
+
+StormDataDT[REFNUM == 529307,REMARKS]
+StormDataDT_recode_large[REFNUM == 529307,
+                         c("PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP",
+                           "recode_PROPDMGEXP", "recode_CROPDMGEXP", 
+                           "PROPDMG.Total","CROPDMG.Total","Property.and.Crop.Damage")]
+
+#carries over multiple entries
+#seems accurate when combined with other entries
+
+StormDataDT[REFNUM == 529311,REMARKS]
+StormDataDT_recode_large[REFNUM == 529311,
+                         c("PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP",
+                           "recode_PROPDMGEXP", "recode_CROPDMGEXP", 
+                           "PROPDMG.Total","CROPDMG.Total","Property.and.Crop.Damage")]
+
+#carries over multiple entries
+#seems accurate when combined with other entries
+
+StormDataDT[REFNUM == 529384,REMARKS]
+StormDataDT_recode_large[REFNUM == 529384,
+                         c("PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP",
+                           "recode_PROPDMGEXP", "recode_CROPDMGEXP", 
+                           "PROPDMG.Total","CROPDMG.Total","Property.and.Crop.Damage")]
+
+#seems accurate
+
+StormDataDT[REFNUM == 529446,REMARKS]
+StormDataDT_recode_large[REFNUM == 529446,
+                         c("PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP",
+                           "recode_PROPDMGEXP", "recode_CROPDMGEXP", 
+                           "PROPDMG.Total","CROPDMG.Total","Property.and.Crop.Damage")]
+
+# ACCURATE
+
+StormDataDT[REFNUM == 564962,REMARKS]
+StormDataDT_recode_large[REFNUM == 564962,
+                         c("PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP",
+                           "recode_PROPDMGEXP", "recode_CROPDMGEXP", 
+                           "PROPDMG.Total","CROPDMG.Total","Property.and.Crop.Damage")]
+
+# KAtrina... yes.
+
+StormDataDT[REFNUM == 569065,REMARKS]
+StormDataDT_recode_large[REFNUM == 569065,
+                         c("PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP",
+                           "recode_PROPDMGEXP", "recode_CROPDMGEXP", 
+                           "PROPDMG.Total","CROPDMG.Total","Property.and.Crop.Damage")]
+
+# seems reasonable
+
+StormDataDT[REFNUM == 569288,REMARKS]
+StormDataDT_recode_large[REFNUM == 569288,
+                         c("PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP",
+                           "recode_PROPDMGEXP", "recode_CROPDMGEXP", 
+                           "PROPDMG.Total","CROPDMG.Total","Property.and.Crop.Damage")]
+
+#Total damage estimates from all the effects range from $9 to $12 billion
+# ACCURATE
+
+StormDataDT[REFNUM == 577615,REMARKS]
+StormDataDT_recode_large[REFNUM == 577615,
+                         c("PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP",
+                           "recode_PROPDMGEXP", "recode_CROPDMGEXP", 
+                           "PROPDMG.Total","CROPDMG.Total","Property.and.Crop.Damage")]
+
+# Katrina
+
+StormDataDT[REFNUM == 577616,REMARKS]
+StormDataDT_recode_large[REFNUM == 577616,
+                         c("PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP",
+                           "recode_PROPDMGEXP", "recode_CROPDMGEXP", 
+                           "PROPDMG.Total","CROPDMG.Total","Property.and.Crop.Damage")]
+
+#seems reasonable
+
+StormDataDT[REFNUM == 577623,REMARKS]
+StormDataDT_recode_large[REFNUM == 577623,
+                         c("PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP",
+                           "recode_PROPDMGEXP", "recode_CROPDMGEXP", 
+                           "PROPDMG.Total","CROPDMG.Total","Property.and.Crop.Damage")]
+
+#seems reasonable
+
+StormDataDT[REFNUM == 581533,REMARKS]
+StormDataDT_recode_large[REFNUM == 581533,
+                         c("PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP",
+                           "recode_PROPDMGEXP", "recode_CROPDMGEXP", 
+                           "PROPDMG.Total","CROPDMG.Total","Property.and.Crop.Damage")]
+
+#more Katrina
+
+StormDataDT[REFNUM == 581535,REMARKS]
+StormDataDT_recode_large[REFNUM == 581535,
+                         c("PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP",
+                           "recode_PROPDMGEXP", "recode_CROPDMGEXP", 
+                           "PROPDMG.Total","CROPDMG.Total","Property.and.Crop.Damage")]
+
+#Thousands of homes and businesses were destroyed by the storm surge.
+# seems reasonable
+
+StormDataDT[REFNUM == 581537,REMARKS]
+StormDataDT_recode_large[REFNUM == 581537,
+                         c("PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP",
+                           "recode_PROPDMGEXP", "recode_CROPDMGEXP", 
+                           "PROPDMG.Total","CROPDMG.Total","Property.and.Crop.Damage")]
+
+#katrina
+
+StormDataDT[REFNUM == 598472,REMARKS]
+StormDataDT_recode_large[REFNUM == 598472,
+                         c("PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP",
+                           "recode_PROPDMGEXP", "recode_CROPDMGEXP", 
+                           "PROPDMG.Total","CROPDMG.Total","Property.and.Crop.Damage")]
+
+# seems reasonable
+
 StormDataDT[REFNUM == 605943,REMARKS]
 StormDataDT_recode_large[REFNUM == 605943,
                          c("PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP",
                            "recode_PROPDMGEXP", "recode_CROPDMGEXP", 
                            "PROPDMG.Total","CROPDMG.Total","Property.and.Crop.Damage")]
-```
 
-The second big error in the data
+#The City of Napa had 600 homes with moderate damage, 
+#150 damaged businesses with costs of at least $70 million
+#big outlier mistake
+#PROPDMG OK PROPDMGEXP M and not B (BIG DIFFERENCE)
+#recode_PROPDMGEXP 1000000
+#PROPDMG.Total 115000000
+#Property.and.Crop.Damage (115+32.5)= 147500000 
 
-"The damages of 200 thousand dollars covered both the roof damage as well as money to replace the ruined food"
---PROPDMG 200 PROPDMGEXP K recode_PROPDMGEXP 1000
---PROPDMG.Total 200000 Property.and.Crop.Damage 200000
+StormDataDT[REFNUM == 639314,REMARKS]
+StormDataDT_recode_large[REFNUM == 639314,
+                         c("PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP",
+                           "recode_PROPDMGEXP", "recode_CROPDMGEXP", 
+                           "PROPDMG.Total","CROPDMG.Total","Property.and.Crop.Damage")]
 
-```{r outlier money REFNUM 37, cache = TRUE}
+# seems reasonable
+
+StormDataDT[REFNUM == 739514,REMARKS]
+StormDataDT_recode_large[REFNUM == 739514,
+                         c("PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP",
+                           "recode_PROPDMGEXP", "recode_CROPDMGEXP", 
+                           "PROPDMG.Total","CROPDMG.Total","Property.and.Crop.Damage")]
+
+StormDataDT[REFNUM == 739515,REMARKS]
+StormDataDT_recode_large[REFNUM == 739515,
+                         c("PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP",
+                           "recode_PROPDMGEXP", "recode_CROPDMGEXP", 
+                           "PROPDMG.Total","CROPDMG.Total","Property.and.Crop.Damage")]
+
+#"damage amounts are estimated to be near 14 billion dollars over the counties of 
+#Harris, Chambers, Galveston, Liberty, Polk, Matagorda, Brazoria, Fort Bend, 
+#San Jacinto, and Montgomery with an estimated 8 billion of that due to storm surge 
+#in coastal Galveston, Harris and Chambers Counties"
+
+StormDataDT[REFNUM == 808257,REMARKS]
+StormDataDT_recode_large[REFNUM == 808257,
+                         c("PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP",
+                           "recode_PROPDMGEXP", "recode_CROPDMGEXP", 
+                           "PROPDMG.Total","CROPDMG.Total","Property.and.Crop.Damage")]
+
+#seems like an overestimate
+#will leave as is
+
 StormDataDT[REFNUM == 834634,REMARKS]
 StormDataDT_recode_large[REFNUM == 834634,
                          c("PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP",
                            "recode_PROPDMGEXP", "recode_CROPDMGEXP", 
                            "PROPDMG.Total","CROPDMG.Total","Property.and.Crop.Damage")]
-```
 
-Disposition: seems like an over estimate.
+#The second big error in the data
+#"The damages of 200 thousand dollars 
+#covered both the roof damage as well as money to replace the ruined food"
+#PROPDMG 200 PROPDMGEXP K recode_PROPDMGEXP 1000
+# PROPDMG.Total 200000 Property.and.Crop.Damage 200000
 
---PROPDMG 150 PROPDMGEXP M recode_PROPDMGEXP 1000000 
---PROPDMG.Total 150000000 Property.and.Crop.Damage 150000000
+StormDataDT[REFNUM == 859151,REMARKS]
+StormDataDT_recode_large[REFNUM == 859151,
+                         c("PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP",
+                           "recode_PROPDMGEXP", "recode_CROPDMGEXP", 
+                           "PROPDMG.Total","CROPDMG.Total","Property.and.Crop.Damage")]
 
-```{r outlier money REFNUM 39, cache = TRUE}
+#seems reasonable
+#"In all, hundreds of homes received moderate to major 
+#damage along the path with many of these being total losses"
+
 StormDataDT[REFNUM == 860355,REMARKS]
 StormDataDT_recode_large[REFNUM == 860355,
                          c("PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP",
                            "recode_PROPDMGEXP", "recode_CROPDMGEXP", 
                            "PROPDMG.Total","CROPDMG.Total","Property.and.Crop.Damage")]
-```
 
-Disposition: seems like an over estimate.
-"The area known as Tunica Cut-Off was flooded as many as 357 homes sustained damage."
+#seems like an over estimate
+#PROPDMG 150 PROPDMGEXP M recode_PROPDMGEXP 1000000 
+#PROPDMG.Total 150000000 Property.and.Crop.Damage 150000000
 
---PROPDMG 100 PROPDMGEXP M recode_PROPDMGEXP 1000000 
---PROPDMG.Total 100000000    Property.and.Crop.Damage 100000000
+StormDataDT[REFNUM == 862563,REMARKS]
+StormDataDT_recode_large[REFNUM == 862563,
+                         c("PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP",
+                           "recode_PROPDMGEXP", "recode_CROPDMGEXP", 
+                           "PROPDMG.Total","CROPDMG.Total","Property.and.Crop.Damage")]
 
-```{r outlier money REFNUM 41, cache = TRUE}
+# seems reasonable only if we make an economic assessment of the loss of life, which was very high
+#The tornado killed 158 directly, three indirectly, and injured over 1150 people.
+
 StormDataDT[REFNUM == 867679,REMARKS]
 StormDataDT_recode_large[REFNUM == 867679,
                          c("PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP",
                            "recode_PROPDMGEXP", "recode_CROPDMGEXP", 
                            "PROPDMG.Total","CROPDMG.Total","Property.and.Crop.Damage")]
-```
 
-Disposition: seems like an over estimate
+# seems like an over estimate
+#The area known as Tunica Cut-Off was flooded as many as 357 homes sustained damage
+#PROPDMG 100 PROPDMGEXP M recode_PROPDMGEXP 1000000 
+#PROPDMG.Total 100000000    Property.and.Crop.Damage 100000000
 
---PROPDMG 200 PROPDMGEXP M recode_PROPDMGEXP 1000000 
---PROPDMG.Total 200000000 #Property.and.Crop.Damage 200000000
-
-```{r outlier money REFNUM 42, cache = TRUE}
 StormDataDT[REFNUM == 867996,REMARKS]
 StormDataDT_recode_large[REFNUM == 867996,
                          c("PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP",
                            "recode_PROPDMGEXP", "recode_CROPDMGEXP", 
                            "PROPDMG.Total","CROPDMG.Total","Property.and.Crop.Damage")]
-```
 
-### Outlier analysis for fatalities and injuries
+# seems like an over estimate
+#PROPDMG 200 PROPDMGEXP M recode_PROPDMGEXP 1000000 
+#PROPDMG.Total 200000000 #Property.and.Crop.Damage 200000000
 
-We found the fatalities and injuries data to be accurate throughout, and did not change any of the values in the data. Here are the cases for 100 or more fatalities. 
-
-```{r outlier money REFNUM 43, cache = TRUE}
 #####################life cost outlier analysis
 StormDataDT_recode_life <- StormDataDT_recode_totals[FATALITIES >= 100]
 StormDataDT_recode_life$REFNUM
-```
+#[1]  68670 148852 198690 862563
 
-### EVTYPE recode.
+#tornadoes kill and injure lots of people!!
 
-For REFNUM 215144 we had to change EVTYPE to "WINTER WEATHER" because the original data contained a "\" character, which causes an error when we run in Windows. 
+StormDataDT[REFNUM == 68670,REMARKS]
+StormDataDT_recode_life[REFNUM == 68670,
+                         c("EVTYPE","FATALITIES","INJURIES","Fatalities.and.Injuries", 
+                           "PROPDMG.Total","CROPDMG.Total","Property.and.Crop.Damage")]
 
-```{r outlier money REFNUM 48, cache = TRUE}
+StormDataDT[REFNUM == 148852,REMARKS]
+StormDataDT_recode_life[REFNUM == 148852,
+                        c("EVTYPE","FATALITIES","INJURIES","Fatalities.and.Injuries", 
+                          "PROPDMG.Total","CROPDMG.Total","Property.and.Crop.Damage")]
+
+StormDataDT[REFNUM == 198690,REMARKS]
+StormDataDT_recode_life[REFNUM == 198690,
+                        c("EVTYPE","FATALITIES","INJURIES","Fatalities.and.Injuries", 
+                          "PROPDMG.Total","CROPDMG.Total","Property.and.Crop.Damage")]
+
+#"583 people died as a result of the heat in Chicago and surrounding areas"
+
+StormDataDT[REFNUM == 862563,REMARKS]
+StormDataDT_recode_life[REFNUM == 862563,
+                        c("EVTYPE","FATALITIES","INJURIES","Fatalities.and.Injuries", 
+                          "PROPDMG.Total","CROPDMG.Total","Property.and.Crop.Damage")]
+
+
+#additional recode for character 
+
 StormDataDT[REFNUM == 215144, EVTYPE]
-```
 
-### Outlier Analysis Code.
+#disposition
+#change EVTYPE to "WINTER WEATHER"
+#explain that this finding came later in the analysis and was re-inserted here for 
+#all recodes to be done in one loop.
 
-This is the code in which we implement our outlier analysis.
 
-```{r outlier implementation, cache = TRUE}
+###################implement outlier analysis
+###all records
+
 for (i in 1:nrow(StormDataDT_recode_totals)) {
   
     if(StormDataDT_recode_totals$REFNUM[[i]] == 187564)
@@ -513,13 +781,79 @@ for (i in 1:nrow(StormDataDT_recode_totals)) {
   
   
 }
-```
 
-### Filter data to keep only non-zero rows.
 
-We load the data from the recodes into our working dataset, and then filter that dataset for non-zero values for the fields in our analysis.
+#[1] "REFNUM == 211887"
+#[1] 211900
+#PROPDMG.Total CROPDMG.Total Fatalities.and.Injuries Property.and.Crop.Damage
+#1         5e+05       5.5e+07                       0                 55500000
+#[1] "REFNUM == 485535"
+#[1] 485577
+#PROPDMG.Total CROPDMG.Total Fatalities.and.Injuries Property.and.Crop.Damage
+#1         1e+08             0                       0                    1e+08
+#[1] "REFNUM == 605943"
+#[1] 605953
+#PROPDMG.Total CROPDMG.Total Fatalities.and.Injuries Property.and.Crop.Damage
+#1      1.15e+08      32500000                       0                147500000
+#[1] "REFNUM == 834634"
+#[1] 834674
+#PROPDMG.Total CROPDMG.Total Fatalities.and.Injuries Property.and.Crop.Damage
+#1         2e+05             0                       1                    2e+05
+#[1] "REFNUM == 860355"
+#[1] 860386
+#PROPDMG.Total CROPDMG.Total Fatalities.and.Injuries Property.and.Crop.Damage
+#1       1.5e+08             0                     844                  1.5e+08
+#[1] "REFNUM == 867679"
+#[1] 867749
+#PROPDMG.Total CROPDMG.Total Fatalities.and.Injuries Property.and.Crop.Damage
+#1         1e+08             0                       0                    1e+08
+#[1] "REFNUM == 867996"
+#[1] 868046
+#PROPDMG.Total CROPDMG.Total Fatalities.and.Injuries Property.and.Crop.Damage
+#1         2e+08             0                       0                    2e+08#
 
-```{r nonzero filter, cache = TRUE}
+filter(StormDataDT_recode_totals,REFNUM == 215144)
+#recode complete: WINTER WEATHER
+
+####sums sall before outlier recode
+#> sum(StormDataDT_recode_totals$FATALITIES)
+#[1] 15145
+#> sum(StormDataDT_recode_totals$INJURIES)
+#1] 140528
+#> sum(StormDataDT_recode_totals$Fatalities.and.Injuries)
+#[1] 155673
+#> sum(StormDataDT_recode_totals$PROPDMG.Total)
+#[1] 428224866095
+#> sum(StormDataDT_recode_totals$CROPDMG.Total)
+#[1] 49104192181
+#> sum(StormDataDT_recode_totals$Property.and.Crop.Damage)
+#[1] 477 329 058 276 that's $477 billion
+
+####sums all after outlier recode
+
+#> sum(StormDataDT_recode_totals$FATALITIES)
+#[1] 15145
+#> sum(StormDataDT_recode_totals$INJURIES)
+#[1] 140528
+#> sum(StormDataDT_recode_totals$Fatalities.and.Injuries)
+#[1] 155673
+#> sum(StormDataDT_recode_totals$PROPDMG.Total)
+#[1] 306590066095
+#> sum(StormDataDT_recode_totals$CROPDMG.Total)
+#[1] 44159192181
+#> sum(StormDataDT_recode_totals$Property.and.Crop.Damage)
+#[1] 350749258276
+
+sum(StormDataDT_recode_totals$FATALITIES)
+sum(StormDataDT_recode_totals$INJURIES)
+sum(StormDataDT_recode_totals$Fatalities.and.Injuries)
+sum(StormDataDT_recode_totals$PROPDMG.Total)
+sum(StormDataDT_recode_totals$CROPDMG.Total)
+sum(StormDataDT_recode_totals$Property.and.Crop.Damage)
+
+
+#######################################################################
+
 head(StormDataDT_recode_totals)
 nrow(StormDataDT_recode_totals)
 #[1] 902297
@@ -532,43 +866,54 @@ head(StormDataDT_recode)
 
 #check for zeroes
 nrow(StormDataDT_recode[FATALITIES == 0  & INJURIES == 0])
+#[1] 880368
 nrow(StormDataDT_recode[Property.and.Crop.Damage == 0])
+#[1] 657266
 nrow(StormDataDT_recode[(FATALITIES == 0  & INJURIES == 0) | 
                           Property.and.Crop.Damage == 0])
+#[1] 889970
 nrow(StormDataDT_recode[!((FATALITIES == 0  & INJURIES == 0) | 
                           Property.and.Crop.Damage == 0)])
+#[1] 12327
+
 StormDataDT_recode_nonzero <- StormDataDT_recode[!(FATALITIES == 0  & INJURIES == 0 & 
                                                      Property.and.Crop.Damage == 0)]
 nrow(StormDataDT_recode_nonzero)
-```
+#[1] 254633
 
-The results in the nonzero skim of the data should be the same as they were in the working dataset that had all the zero value rows. Here are the sums for the working dataset.
-
-```{r working dataset check for nonzero, cache = TRUE}
 sum(StormDataDT_recode_totals$FATALITIES)
 sum(StormDataDT_recode_totals$INJURIES)
 sum(StormDataDT_recode_totals$Fatalities.and.Injuries)
 sum(StormDataDT_recode_totals$PROPDMG.Total)
 sum(StormDataDT_recode_totals$CROPDMG.Total)
 sum(StormDataDT_recode_totals$Property.and.Crop.Damage)
-```
 
-Here are the sums for the filtered dataset.
-
-```{r nonzero filter check, cache = TRUE}
+#logic is correct
 sum(StormDataDT_recode_nonzero$FATALITIES)
 sum(StormDataDT_recode_nonzero$INJURIES)
 sum(StormDataDT_recode_nonzero$Fatalities.and.Injuries)
 sum(StormDataDT_recode_nonzero$PROPDMG.Total)
 sum(StormDataDT_recode_nonzero$CROPDMG.Total)
 sum(StormDataDT_recode_nonzero$Property.and.Crop.Damage)
-```
 
-### Inflation Adjustment
+####recode EVTYPE for StormDataDT_recode_nonzero
+write.csv(StormDataDT_recode_nonzero, "./data-test/StormDataDT_recode_nonzero.csv")
+head(StormDataDT_recode_nonzero)
+nrow(StormDataDT_recode_nonzero)
+#[1] 254633
 
-We use the U.S. Inflation Calculator website [https://www.usinflationcalculator.com] to find out the value of 2011 dollars for the years 1950 to 2010. We insert this data into a table and join it with our data.
+#do not need to be recoded
+#originally as: (but other fields will be recoded into these)
+#EVTYPE	COUNT
+#WILDFIRE	857
+#WINTER WEATHER	407
+#TSUNAMI	14
 
-```{r infla table, cache = TRUE}
+#1950 to 2011
+tail(StormDataDT_recode_nonzero)
+
+#https://www.usinflationcalculator.com/
+
 Inflation_multiplier <- tribble(
   ~year, ~Inflation.Adjustment,
   #----/----------------------
@@ -635,9 +980,13 @@ Inflation_multiplier <- tribble(
   2010	,	1.03	,
   2011	,	1	
 )  
+
 head(Inflation_multiplier)
 tail(Inflation_multiplier)
 StormDataDT_recode_nonzero <- as_tibble(StormDataDT_recode_nonzero)
+
+#all data
+
 StormDataDT_recode_nonzero <- 
   mutate(StormDataDT_recode_nonzero, year = as.numeric(BGN_DATE_year))
 
@@ -646,52 +995,59 @@ StormDataDT_recode_infla <- StormDataDT_recode_nonzero %>%
 
 names(StormDataDT_recode_infla)
 head(StormDataDT_recode_infla$Inflation.Adjustment,100)
-tail(StormDataDT_recode_infla$Inflation.Adjustment,100)
+head(StormDataDT_recode_infla)
+tail(StormDataDT_recode_infla)
+
 StormDataDT_recode_infla <- select(StormDataDT_recode_infla, -(BGN_DATE_year))
 StormDataDT_recode_infla_adjusted <- transmute(StormDataDT_recode_infla, year,
           EVTYPE, FATALITIES, INJURIES, Fatalities.and.Injuries,
           PROPDMG.Total.Infla = PROPDMG.Total * Inflation.Adjustment,
           CROPDMG.Total.Infla = CROPDMG.Total * Inflation.Adjustment, 
           Property.and.Crop.Damage.Infla = Property.and.Crop.Damage * Inflation.Adjustment)
-```
 
-We check the inflation adjusted dataset.
-
-```{r infla table check, cache = TRUE}
 head(StormDataDT_recode_infla_adjusted)
 tail(StormDataDT_recode_infla_adjusted)
 nrow(StormDataDT_recode_infla_adjusted)
-```
+#[1] 254633
 
-## EVTYPE recode
+#######################################################
+#file for EVTYPE recode
+class(StormDataDT_recode_infla_adjusted)
+colnames(StormDataDT_recode_infla_adjusted)
 
-We group the EVTYPE desriptions into eight categories:
+sum(StormDataDT_recode_infla_adjusted$FATALITIES)
+sum(StormDataDT_recode_infla_adjusted$INJURIES)
+sum(StormDataDT_recode_infla_adjusted$Fatalities.and.Injuries)
+sum(StormDataDT_recode_infla_adjusted$FATALITIES)/sum(StormDataDT_recode_infla_adjusted$Fatalities.and.Injuries)
+sum(StormDataDT_recode_infla_adjusted$INJURIES)/sum(StormDataDT_recode_infla_adjusted$Fatalities.and.Injuries)
 
-- DROUGHT, EXCESSIVE HEAT
-- HEAVY RAIN, FLOODING, MUDSLIDES, LANDSLIDES
-- HURRICANE SEASON
-- THUNDERSTORM
-- TORNADO, HAIL, HIGH WIND
-- WILDFIRE
-- WINTER WEATHER
-- OTHER (e.g.: Tsunamis, rip currents, fog)
 
-First, we sum by year and EVTYPE to recode a given EVTYPE in the smallest possible number of instances. We place that dataset in test copy that we will eventually use as our final copy. 
 
-```{r EVTYPE recode setup, cache = TRUE}
 StormDataDT_recode_summed <- 
   StormDataDT_recode_infla_adjusted %>% group_by(year, EVTYPE) %>% 
   summarize(Property.and.Crop.Damage.Sum = sum(Property.and.Crop.Damage.Infla),
             Fatalities.and.Injuries.Sum = sum(Fatalities.and.Injuries))
+
 head(StormDataDT_recode_summed)
 nrow(StormDataDT_recode_summed)
+
+write.csv(StormDataDT_recode_summed, "./data-test/StormDataDT_recode_summed.csv")
+
+#######################################################
+#EVTYPE recode
+
+#No recode needed
+#EVTYPE	
+#TSUNAMI	
+#WILDFIRE	
+#INTER WEATHER	
+
+StormDataDT_recode_summed_test$EVTYPE[[1]] 
+StormDataDT_recode_summed_test$EVTYPE[[1000]] 
+
 StormDataDT_recode_summed_test <- StormDataDT_recode_summed
 class(StormDataDT_recode_summed_test)
-```
 
-Here is the code.
-
-```{r EVTYPE recode, cache = TRUE}
 for (i in 1:nrow(StormDataDT_recode_summed_test)) {
   
   if (StormDataDT_recode_summed_test$EVTYPE[[i]] =="DROUGHT" | 
@@ -1209,66 +1565,65 @@ for (i in 1:nrow(StormDataDT_recode_summed_test)) {
    {StormDataDT_recode_summed_test$EVTYPE[[i]] <- "WINTER WEATHER"}   
 
 }  
-```
+ 
 
-We are finally ready to compile the dataset we can use to show our results. 
+ 
+#tests
 
-```{r final data, cache = TRUE}
+filter(StormDataDT_recode_summed,EVTYPE == "DROUGHT")
+filter(StormDataDT_recode_summed,EVTYPE == "DROUGHT, EXCESSIVE HEAT")
+filter(StormDataDT_recode_summed_test,EVTYPE == "DROUGHT")
+filter(StormDataDT_recode_summed_test,EVTYPE == "DROUGHT, EXCESSIVE HEAT")
+
+filter(StormDataDT_recode_summed,EVTYPE == "URBAN/SMALL STREAM")
+filter(StormDataDT_recode_summed,EVTYPE == "HEAVY RAIN, FLOODING, MUDSLIDES, LANDSLIDES")
+filter(StormDataDT_recode_summed_test,EVTYPE == "URBAN/SMALL STREAM")
+filter(StormDataDT_recode_summed_test,EVTYPE == "HEAVY RAIN, FLOODING, MUDSLIDES, LANDSLIDES")
+
+filter(StormDataDT_recode_summed,EVTYPE == "TROPICAL STORM JERRY")
+filter(StormDataDT_recode_summed,EVTYPE == "HURRICANE SEASON")
+filter(StormDataDT_recode_summed_test,EVTYPE == "TROPICAL STORM JERRY")
+filter(StormDataDT_recode_summed_test,EVTYPE == "HURRICANE SEASON")
+
+filter(StormDataDT_recode_summed,EVTYPE == "VOLCANIC ASH" ) 
+filter(StormDataDT_recode_summed,EVTYPE == "OTHER")
+filter(StormDataDT_recode_summed_test,EVTYPE == "VOLCANIC ASH" ) 
+filter(StormDataDT_recode_summed_test,EVTYPE == "OTHER")
+
+filter(StormDataDT_recode_summed,EVTYPE == "TUNDERSTORM WIND" ) 
+filter(StormDataDT_recode_summed,EVTYPE == "THUNDERSTORM")
+filter(StormDataDT_recode_summed_test,EVTYPE == "TUNDERSTORM WIND" ) 
+filter(StormDataDT_recode_summed_test,EVTYPE == "THUNDERSTORM")
+
+filter(StormDataDT_recode_summed,EVTYPE == "WIND DAMAGE" ) 
+filter(StormDataDT_recode_summed,EVTYPE == "TORNADO, HAIL, HIGH WIND")
+filter(StormDataDT_recode_summed_test,EVTYPE == "WIND DAMAGE" ) 
+filter(StormDataDT_recode_summed_test,EVTYPE == "TORNADO, HAIL, HIGH WIND")
+
+filter(StormDataDT_recode_summed,EVTYPE == "WILDFIRES" ) 
+filter(StormDataDT_recode_summed,EVTYPE == "WILDFIRE")
+filter(StormDataDT_recode_summed_test,EVTYPE == "WILDFIRES" ) 
+filter(StormDataDT_recode_summed_test,EVTYPE == "WILDFIRE")
+
+filter(StormDataDT_recode_summed,EVTYPE == "Wintry Mix" ) 
+filter(StormDataDT_recode_summed,EVTYPE == "WINTER WEATHER")
+filter(StormDataDT_recode_summed_test,EVTYPE == "Wintry Mix" ) 
+filter(StormDataDT_recode_summed_test,EVTYPE == "WINTER WEATHER")
+
+#########################################
+#a tibble
+class(StormDataDT_recode_summed_test)
+#sum for EV_TYPE
+
 StormDataDT_recode_summed_final <- 
   StormDataDT_recode_summed_test %>% group_by(year, EVTYPE) %>%
   summarize(Property.and.Crop.Damage.Final = (sum(Property.and.Crop.Damage.Sum)/1000000),
           Fatalities.and.Injuries.Final = sum(Fatalities.and.Injuries.Sum))
-```
 
-## Results
+write.csv(StormDataDT_recode_summed_final, "./data-test/StormDataDT_recode_summed_final.csv")
 
-The eight categories of natural disaster in our analysis are:
+######plots
 
-- DROUGHT, EXCESSIVE HEAT
-- HEAVY RAIN, FLOODING, MUDSLIDES, LANDSLIDES
-- HURRICANE SEASON
-- THUNDERSTORM
-- TORNADO, HAIL, HIGH WIND
-- WILDFIRE
-- WINTER WEATHER
-- OTHER (e.g.: Tsunamis, rip currents, fog)
-
-The years reported for the eight categories of natural disasters vary for all effects (property damage, crop damage, fatalities, and injurues). The TORNADO, HAIL, HIGH WIND category has data for the complete time period of this analysis (1950-2011). Fatalities and Injuries are reported for 1983-2011 for the THUNDERSTORM category. For the other six categories, and for the the THUNDERSTORM category for property damage and crop damage. 
-
-The total costs for property and crop damage, knowing that all categories are not fully reported for the 1950-2011 time period, after inflation adjustment and recoding of a handul of the largest outliers for property and crop damage is $495.7 billion dollars. The total number of fatalities and injuries for this time period is 155,673, with 15,145 (9.7 percent) consisting fatalities, and 140,528 (90.3 percent) consisting of injuries.
-
-```{r final sums, cache = TRUE}
-sum(StormDataDT_recode_summed_final$Property.and.Crop.Damage.Final)
-sum(StormDataDT_recode_infla_adjusted$FATALITIES)
-sum(StormDataDT_recode_infla_adjusted$INJURIES)
-sum(StormDataDT_recode_infla_adjusted$Fatalities.and.Injuries)
-sum(StormDataDT_recode_infla_adjusted$FATALITIES)/sum(StormDataDT_recode_infla_adjusted$Fatalities.and.Injuries)
-sum(StormDataDT_recode_infla_adjusted$INJURIES)/sum(StormDataDT_recode_infla_adjusted$Fatalities.and.Injuries)
-
-```
-
-Knowning that the categories are not comparable means that all we can say about the data when we consider all of the data are the total costs to property and crops and the total fatalities and injuries. 
-
-With this caveat, for what has been reported between 1950 and 2011, "TORNADO, HAIL, HIGH WIND" events have cost	$172.9 billion dollars in property and crop damage, followed by 
-"HEAVY RAIN, FLOODING, MUDSLIDES, LANDSLIDES"	property and crop damage costs at $139.6 billion dollars, and "HURRICANE SEASON"	property and crop damage costs at $119.6 billion dollars. The next categories accounted for relatively lower costs ($20 billion dollars and lower) each.
-
-Again, with the caveat of incompletely reported data, for what has been reported between 1950 and 2011, "TORNADO, HAIL, HIGH WIND" events have cost	101,337 fatalities and injuries, or 65.1 percent of all reported fatalities and injuries in this dataset. All of the other categories represent much smaller fractions of this total, yet the data is unevenly reported.
-
-```{r final table, cache = TRUE}
-property_crop_damage_years <- StormDataDT_recode_summed_final %>% group_by(EVTYPE) %>% 
-  summarize(Property.and.Crop.Damage.Years = sum(Property.and.Crop.Damage.Final)) %>% 
-  arrange(desc(Property.and.Crop.Damage.Years)) 
-kable(property_crop_damage_years)
-fatalities_injuries_years <- StormDataDT_recode_summed_final %>% group_by(EVTYPE) %>% 
-  summarize(Fatalities.and.Injuries.Years = sum(Fatalities.and.Injuries.Final)) %>%
-  arrange(desc(Fatalities.and.Injuries.Years))
-kable(fatalities_injuries_years)
-
-```
-
-Here is a plot of the otal Property and Crop Damage Caused by Natural Disasters for 1950-2011 for TORNADO, and for 1993-2011 for the other sever categories. The geograhical span of the data includes all U.S. states and territories (Puerto Rico, for example). The values are in $US Millions, and have been adjusted for inflation as 2011 dollars.
-
-```{r final-data-plot-property, cache = TRUE, fig.height = 7, fig.width = 12}
 ggplot(data = StormDataDT_recode_summed_final) +
   geom_col(mapping = aes(x = year, y = Property.and.Crop.Damage.Final)) + 
   facet_wrap(~ EVTYPE, nrow = 2) +
@@ -1276,11 +1631,7 @@ ggplot(data = StormDataDT_recode_summed_final) +
           subtitle = "1950-2011 For TORNADO..., 1993-2011 for other Categories, 
           \n United States and Territories, In $US Millions, Inflation Adjusted (2011 Dollars)") +
   ylab("Total Property and Crop Damage")
-```
 
-Here is a plot of the total fatalities and injuries caused by the eight categories of natural disaster in this analysis. The data has bee reported for 1950-2011 for TORNADO..., 1983-2011 for THUNDERSTORMS, and 1993-2011 for other seven categories
-
-```{r final-data-plot-people, cache = TRUE, fig.height = 7, fig.width = 12}
 ggplot(data = StormDataDT_recode_summed_final) +
   geom_col(mapping = aes(x = year, y = Fatalities.and.Injuries.Final)) + 
   facet_wrap(~ EVTYPE, nrow = 2) +
@@ -1288,36 +1639,41 @@ ggplot(data = StormDataDT_recode_summed_final) +
           subtitle = "1950-2011 For TORNADO..., 1983-2011 for THUNDERSTORMS, 1993-2011 for other Categories, 
           \n United States and Territories") +
   ylab("Total Fatalities and Injuries")
-```
 
-The comparable data range for the data in this analysis is the time period 1993-2011. The totals for this time range are shown below. The top two categories for property and crop damage costs are close: HEAVY RAIN, FLOODING, MUDSLIDES, LANDSLIDES at	$139.6 billion dollars, and 
-HURRICANE SEASON at	$119.6 billion dollars. The third category has also been financially costly, TORNADO, HAIL, HIGH WIND, at $62.2 billion dollars. 
 
-For fatalities and injuries, though, the TORNADO, HAIL, HIGH WIND, at 28,883 has cost more than twice the total number of fatalities and injuries than the nearly equally costly three next categories: THUNDERSTORM at 12734 fatalities and injuries, DROUGHT, EXCESSIVE HEAT at 12174 fatalities and injuries, and HEAVY RAIN, FLOODING, MUDSLIDES, LANDSLIDES at 11566 fatalities and injuries.
+sum(StormDataDT_recode_summed_final$FATALITIES)
+sum(StormDataDT_recode_summed_final$INJURIES)
+sum(StormDataDT_recode_summed_final$Fatalities.and.Injuries)
+sum(StormDataDT_recode_summed_final$PROPDMG.Total)
+sum(StormDataDT_recode_summed_final$CROPDMG.Total)
+sum(StormDataDT_recode_summed_final$Property.and.Crop.Damage)
 
-```{r final table 1993, cache = TRUE}
-StormDataDT_recode_since1993_final <- filter(StormDataDT_recode_summed_final, year >= 1993)
+#For tables:
+  
+property_crop_damage_years <- StormDataDT_recode_summed_final %>% group_by(EVTYPE) %>% 
+  summarize(Property.and.Crop.Damage.Years = sum(Property.and.Crop.Damage.Final)) %>% 
+  arrange(desc(Property.and.Crop.Damage.Years)) 
+  
+
+fatalities_injuries_years <- StormDataDT_recode_summed_final %>% group_by(EVTYPE) %>% 
+  summarize(Fatalities.and.Injuries.Years = sum(Fatalities.and.Injuries.Final)) %>%
+  arrange(desc(Fatalities.and.Injuries.Years))
+
+StormDataDT_recode_since1993_final <- filter(StormDataDT_recode_summed_final, year >= 1993) 
+
 property_crop_damage_years_since1993 <- StormDataDT_recode_since1993_final %>% group_by(EVTYPE) %>% 
   summarize(Property.and.Crop.Damage.Years = sum(Property.and.Crop.Damage.Final)) %>% 
   arrange(desc(Property.and.Crop.Damage.Years)) 
-kable(property_crop_damage_years_since1993)
-fatalities_injuries_years <- StormDataDT_recode_since1993_final %>% group_by(EVTYPE) %>% 
+
+
+fatalities_injuries_years_since1993 <- StormDataDT_recode_since1993_final %>% group_by(EVTYPE) %>% 
   summarize(Fatalities.and.Injuries.Years = sum(Fatalities.and.Injuries.Final)) %>%
   arrange(desc(Fatalities.and.Injuries.Years))
-kable(fatalities_injuries_years)
 
-```
-
-And finally, here is the range 1993-2011 for all categories, for property and crop damage. Hurricane Katrina and major floods in the Midwest figure prominently in this cost data. 
-
-```{r final-data-plot-property-since1993, cache = TRUE, fig.height = 7, fig.width = 12}
 ggplot(data = StormDataDT_recode_since1993_final) +
   geom_col(mapping = aes(x = year, y = Property.and.Crop.Damage.Final)) + 
   facet_wrap(~ EVTYPE, nrow = 2) +
   ggtitle("Total Property and Crop Damage Caused by Natural Disasters (Source: NOAA)", 
-          subtitle = "1950-2011 For TORNADO..., 1993-2011 for other Categories, 
-          \n United States and Territories, In $US Millions, Inflation Adjusted (2011 Dollars)") +
+          subtitle = "1993-2011, United States and Territories, In $US Millions, Inflation Adjusted (2011 Dollars)") +
   ylab("Total Property and Crop Damage")
-```
-
 
