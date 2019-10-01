@@ -31,6 +31,15 @@ Review criteria
 7.	Is there a section titled "Results" where the main results are presented?
 8.	Is there at least one figure in the document that contains a plot?
 9.	Are there at most 3 figures in this document?
+
+Figures:
+
+(final-data-plot-property-1)
+
+(final-data-plot-people-1)
+
+(final-data-plot-property-since1993-1)
+
 10.	Does the analysis start from the raw data file (i.e. the original .csv.bz2 file)?
 11.	Does the analysis address the question of which types of events are most harmful to population health?
 12.	Does the analysis address the question of which types of events have the greatest economic consequences?
