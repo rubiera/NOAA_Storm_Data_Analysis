@@ -34,11 +34,11 @@ Review criteria
 
 Figures:
 
-![Property Costs](final-data-plot-property-1)
+![Property Costs](final-data-plot-property-1.png)
 
-![People Costs](final-data-plot-people-1)
+![People Costs](final-data-plot-people-1.png)
 
-![Property Costs since 1993](final-data-plot-property-since1993-1)
+![Property Costs since 1993](final-data-plot-property-since1993-1.png)
 
 10.	Does the analysis start from the raw data file (i.e. the original .csv.bz2 file)?
 11.	Does the analysis address the question of which types of events are most harmful to population health?
